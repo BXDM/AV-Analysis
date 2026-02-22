@@ -22,6 +22,7 @@ OUTPUT_DB_NAME = "report.duckdb"
 OUTPUT_THUMBNAILS_SUBDIR = "thumbnails"
 OUTPUT_REPORT_TXT = "video_report.txt"
 OUTPUT_CHART = "keyword_summary.png"
+OUTPUT_TREEMAP = "size_treemap.png"
 OUTPUT_INDEX_HTML = "index.html"
 
 # 文件名编码（处理日语等）

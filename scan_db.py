@@ -321,12 +321,25 @@ def scan_to_output(
                 if progress_callback:
                     progress_callback(idx + 1, total, row_dict)
 
+    rows_for_report = con.execute(
+        "SELECT path, file_size, thumbnail_file FROM videos WHERE scan_id = ?", [scan_id]
+    ).fetchall()
     con.close()
 
-    # 报告与图表写到 output_dir（打印由 text_report / plot_summary 内部完成，此处不重复）
-    from filename_analysis import text_report, plot_summary
-    text_report(records, keyword_counter, str(out / OUTPUT_REPORT_TXT))
+    # 报告与图表写到 output_dir：单份 txt（Summary + 按目录分组的文件列表）、treemap 图
+    from config import OUTPUT_TREEMAP
+    from filename_analysis import write_single_report, plot_summary, report_tree_and_treemap
+    write_single_report(
+        str(db_path),
+        scan_id,
+        str(root),
+        str(out),
+        str(out / OUTPUT_REPORT_TXT),
+        rows_for_report,
+        keyword_counter,
+    )
     plot_summary(keyword_counter, output_path=str(out / OUTPUT_CHART))
+    report_tree_and_treemap(str(root), rows_for_report, str(out / OUTPUT_TREEMAP))
 
     # HTML 从 DB 读，缩略图在 output_dir 下；传 root_path 时用相对链接，thumb_frames 供前端雪碧图拨动
     from html_index import build_index_from_db

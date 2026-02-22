@@ -7,6 +7,7 @@ Pillow>=9.0.0
 
 # Charts (analysis/chart)
 matplotlib>=3.5.0
+squarify>=0.4.3
 
 # HTML template (Jinja2)
 Jinja2>=3.0.0

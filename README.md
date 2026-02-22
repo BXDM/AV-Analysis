@@ -15,7 +15,7 @@ python run.py
 - **之后**：直接 `python run.py` = 用上次目录扫描并刷新索引。
 - **只刷新索引**（改过模板/样式时）：`python run.py --index` 或 `python run.py -i`。
 
-结果在 **扫描源/AV-Summary**：`report.duckdb`、`thumbnails/`、`index.html` 等。打开 `index.html` 即可浏览。
+结果在 **扫描源/AV-Summary**：`report.duckdb`、`thumbnails/`、`video_report.txt`（前为 Summary：扫描信息、汇总、目录树、关键词；后为按目录分组的详细文件列表）、`size_treemap.png`、`index.html`。打开 `index.html` 即可浏览。
 
 ---
 
