@@ -158,7 +158,7 @@ def _worker_process_one(args: tuple) -> dict:
         out["duration_sec"] = meta["duration_sec"]
         out["width"] = meta["width"]
         out["height"] = meta["height"]
-    from video_thumbnails import extract_frames, stitch_frames
+    from video_thumbnails import extract_frames, stitch_frames, save_animated_gif
     frames = extract_frames(p, num_frames, max_width)
     if not frames:
         return out
@@ -169,6 +169,8 @@ def _worker_process_one(args: tuple) -> dict:
         img.save(str(thumb_full), "JPEG", quality=85)
         out["thumbnail_file"] = thumb_rel
         out["status"] = "ok"
+        gif_path = Path(thumb_full).with_suffix(".gif")
+        save_animated_gif(frames, gif_path, duration_ms=280)
     except Exception:
         pass
     return out
@@ -307,15 +309,13 @@ def scan_to_output(
 
     con.close()
 
-    # 报告与图表写到 output_dir
+    # 报告与图表写到 output_dir（打印由 text_report / plot_summary 内部完成，此处不重复）
     from filename_analysis import text_report, plot_summary
     text_report(records, keyword_counter, str(out / OUTPUT_REPORT_TXT))
     plot_summary(keyword_counter, output_path=str(out / OUTPUT_CHART))
-    print("已保存文字报告:", out / OUTPUT_REPORT_TXT)
-    print("已保存图表:", out / OUTPUT_CHART)
 
-    # HTML 从 DB 读，缩略图在 output_dir 下
+    # HTML 从 DB 读，缩略图在 output_dir 下；传 root_path 时用相对链接，summary 随目录迁移
     from html_index import build_index_from_db
-    build_index_from_db(str(db_path), str(out), scan_id=scan_id)
+    build_index_from_db(str(db_path), str(out), scan_id=scan_id, root_path=str(root))
 
     return stats

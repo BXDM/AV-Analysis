@@ -31,7 +31,10 @@ def main():
         print(f"目录不存在: {source_path}", file=sys.stderr)
         sys.exit(1)
 
-    output = (SCAN_OUTPUT_DIR or "").strip() or default_output_dir(source)
+    if (SCAN_OUTPUT_DIR or "").strip():
+        output = (SCAN_OUTPUT_DIR or "").strip()
+    else:
+        output = default_output_dir(source)
     output_path = Path(output).resolve()
     output_path.mkdir(parents=True, exist_ok=True)
 

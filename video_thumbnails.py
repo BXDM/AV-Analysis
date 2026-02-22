@@ -76,6 +76,28 @@ def extract_frames(video_path: Path, num_frames: int, max_width: int):
     return _extract_opencv(video_path, num_frames, max_width)
 
 
+def save_animated_gif(frames, path: str | Path, duration_ms: int = 280) -> None:
+    """将多帧保存为循环 GIF，用于悬停预览。"""
+    if not frames:
+        return
+    try:
+        from PIL import Image
+    except ImportError:
+        return
+    path = Path(path)
+    images = [Image.fromarray(f) for f in frames]
+    try:
+        images[0].save(
+            str(path),
+            save_all=True,
+            append_images=images[1:],
+            duration=duration_ms,
+            loop=0,
+        )
+    except Exception:
+        pass
+
+
 def stitch_frames(frames, gap: int = 4):
     """多帧横向拼接成一张图。"""
     if not frames:

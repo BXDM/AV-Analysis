@@ -48,8 +48,11 @@ FFMPEG_HWACCEL = "auto"
 # 一键扫描入口（run_scan.py）使用的目录：仅更新数据库与缩略图，不全盘清空
 # 扫描源目录（必填，运行 run_scan.py 时从此处读）
 SCAN_SOURCE_DIR = r""
-# 输出目录（留空则根据源目录路径哈希自动生成到项目 output/ 下）
+# 输出目录（留空时见下）
 SCAN_OUTPUT_DIR = ""
+# 当 SCAN_OUTPUT_DIR 留空时：写到此子目录名下，summary 随视频目录迁移（推荐）
+# 设为空字符串则用项目 output/<路径哈希>，不随目录迁移
+SCAN_OUTPUT_INSIDE_SOURCE = "AV-Summary"
 
 
 def is_video(filename: str) -> bool:

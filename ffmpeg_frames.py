@@ -55,13 +55,12 @@ def get_video_metadata_ffprobe(video_path: str | Path) -> dict | None:
                 str(path),
             ],
             capture_output=True,
-            text=True,
             timeout=30,
             creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
         )
         if out.returncode != 0 or not out.stdout:
             return None
-        data = json.loads(out.stdout)
+        data = json.loads(out.stdout.decode("utf-8", errors="replace"))
         streams = data.get("streams") or []
         if not streams:
             return None
@@ -131,12 +130,11 @@ def extract_frames_ffmpeg(
                     str(path),
                 ],
                 capture_output=True,
-                text=True,
                 timeout=15,
                 creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
             )
             if out.returncode == 0 and out.stdout:
-                data = json.loads(out.stdout)
+                data = json.loads(out.stdout.decode("utf-8", errors="replace"))
                 s = (data.get("streams") or [{}])[0]
                 if s.get("duration"):
                     duration_sec = float(s["duration"])
@@ -204,11 +202,12 @@ def _run_cmd(cmd: list, timeout: int = 15) -> tuple[int, str, str]:
         r = subprocess.run(
             cmd,
             capture_output=True,
-            text=True,
             timeout=timeout,
             creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
         )
-        return r.returncode, (r.stdout or ""), (r.stderr or "")
+        stdout = (r.stdout or b"").decode("utf-8", errors="replace")
+        stderr = (r.stderr or b"").decode("utf-8", errors="replace")
+        return r.returncode, stdout, stderr
     except (FileNotFoundError, subprocess.TimeoutExpired) as e:
         return -1, "", str(e)
     except Exception as e:

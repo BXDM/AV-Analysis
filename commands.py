@@ -6,10 +6,13 @@ import shutil
 import sys
 from pathlib import Path
 
-from config import OUTPUT_DB_NAME, THUMBNAILS_DIR
+from config import OUTPUT_DB_NAME, THUMBNAILS_DIR, SCAN_OUTPUT_INSIDE_SOURCE
 
 
-def default_output_dir(root: str) -> str:
+def default_output_dir(root: str, inside_source: bool = True) -> str:
+    """inside_source=True 时优先用 扫描源/AV-Summary，summary 随目录迁移。"""
+    if inside_source and (SCAN_OUTPUT_INSIDE_SOURCE or "").strip():
+        return str(Path(root).resolve() / (SCAN_OUTPUT_INSIDE_SOURCE or "").strip())
     import hashlib
     base = Path(__file__).resolve().parent / "output"
     h = hashlib.sha256(root.encode("utf-8")).hexdigest()[:12]

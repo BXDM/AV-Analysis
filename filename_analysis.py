@@ -100,21 +100,28 @@ def plot_summary(keyword_counter: Counter, top_n: int = 20, output_path: str = "
     ax2.set_title("关键词分布（前 %d）" % n_pie)
 
     plt.tight_layout()
-    plt.savefig(output_path, dpi=120, bbox_inches="tight")
-    plt.close()
-    print("已保存图表:", output_path)
+    try:
+        plt.savefig(output_path, dpi=120, bbox_inches="tight")
+        print("已保存图表:", output_path)
+    except (UnicodeDecodeError, UnicodeEncodeError) as e:
+        print("保存图表时编码异常（如文件名含特殊字符），已跳过:", e)
+    finally:
+        plt.close()
 
 
 def text_report(records: list[dict], keyword_counter: Counter, output_path: str = "video_report.txt"):
     """纯文字列表报告：文件列表 + 关键词统计。"""
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write("=== 视频文件列表 ===\n\n")
-        for r in records:
-            f.write(r["path"] + "\n")
-        f.write("\n=== 关键词统计（Top 50）===\n\n")
-        for kw, cnt in keyword_counter.most_common(50):
-            f.write(f"  {kw}: {cnt}\n")
-    print("已保存文字报告:", output_path)
+    try:
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write("=== 视频文件列表 ===\n\n")
+            for r in records:
+                f.write(r["path"] + "\n")
+            f.write("\n=== 关键词统计（Top 50）===\n\n")
+            for kw, cnt in keyword_counter.most_common(50):
+                f.write(f"  {kw}: {cnt}\n")
+        print("已保存文字报告:", output_path)
+    except (UnicodeDecodeError, UnicodeEncodeError) as e:
+        print("保存文字报告时编码异常，已跳过:", e)
 
 
 def run_analysis(root: str, top_n: int = 20, report_txt: str = "video_report.txt", chart_path: str = "keyword_summary.png"):
