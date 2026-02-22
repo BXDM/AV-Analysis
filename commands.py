@@ -6,7 +6,15 @@ import shutil
 import sys
 from pathlib import Path
 
-from config import OUTPUT_DB_NAME, THUMBNAILS_DIR, SCAN_OUTPUT_INSIDE_SOURCE, QUICK_SCAN_MODE, THUMBNAIL_FRAME_COUNT
+from config import (
+    OUTPUT_DB_NAME,
+    THUMBNAILS_DIR,
+    SCAN_OUTPUT_INSIDE_SOURCE,
+    SCAN_OUTPUT_DIR,
+    SCAN_SOURCE_DIR,
+    QUICK_SCAN_MODE,
+    THUMBNAIL_FRAME_COUNT,
+)
 
 
 def default_output_dir(root: str, inside_source: bool = True) -> str:
@@ -17,6 +25,31 @@ def default_output_dir(root: str, inside_source: bool = True) -> str:
     base = Path(__file__).resolve().parent / "output"
     h = hashlib.sha256(root.encode("utf-8")).hexdigest()[:12]
     return str(base / h)
+
+
+def get_scan_source_and_output():
+    """
+    统一解析扫描源与输出目录：优先 config.SCAN_SOURCE_DIR，否则读 target_dir.txt 第一行。
+    返回 (source_path: Path, output_path: Path) 或 (None, None)。output 使用 SCAN_OUTPUT_DIR 或 源/AV-Summary。
+    """
+    source = (SCAN_SOURCE_DIR or "").strip()
+    if not source:
+        cfg = Path(__file__).resolve().parent / "target_dir.txt"
+        if cfg.exists():
+            line = cfg.read_text(encoding="utf-8").strip().splitlines()
+            if line:
+                source = line[0].strip()
+    if not source:
+        return None, None
+    source_path = Path(source).resolve()
+    if not source_path.is_dir():
+        return None, None
+    if (SCAN_OUTPUT_DIR or "").strip():
+        output_path = Path((SCAN_OUTPUT_DIR or "").strip()).resolve()
+    else:
+        output_path = source_path / ((SCAN_OUTPUT_INSIDE_SOURCE or "AV-Summary").strip() or "AV-Summary")
+        output_path = output_path.resolve()
+    return source_path, output_path
 
 
 def safe_print_path(p: str) -> None:
