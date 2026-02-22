@@ -55,7 +55,7 @@ def get_video_metadata_ffprobe(video_path: str | Path) -> dict | None:
                 str(path),
             ],
             capture_output=True,
-            timeout=30,
+            timeout=12,
             creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
         )
         if out.returncode != 0 or not out.stdout:

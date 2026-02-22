@@ -12,7 +12,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from config import SCAN_SOURCE_DIR, SCAN_OUTPUT_DIR
-from commands import default_output_dir
+from commands import default_output_dir, cmd_index
 from scan_db import scan_to_output
 
 
@@ -43,7 +43,15 @@ def main():
         from rich.progress import Progress, BarColumn, TextColumn, TaskProgressColumn, TimeElapsedColumn, TimeRemainingColumn
     except ImportError:
         # 无 rich 时直接调用，使用 scan_db 内置的 print
-        scan_to_output(source, output)
+        try:
+            scan_to_output(source, output)
+        except KeyboardInterrupt:
+            print("已中断扫描。", file=sys.stderr)
+            sys.exit(130)
+        try:
+            cmd_index(str(output_path))
+        except Exception:
+            pass
         return
 
     console = Console()
@@ -85,8 +93,17 @@ def main():
         refresh_per_second=4,
     ) as progress:
         task_id = progress.add_task("准备中…", total=None, completed=0)
-        scan_to_output(source, output, progress_callback=on_progress)
+        try:
+            scan_to_output(source, output, progress_callback=on_progress)
+        except KeyboardInterrupt:
+            console.print("\n[yellow]已中断扫描。[/yellow] 已处理条目已写入 DB，可再次运行以继续。")
+            sys.exit(130)
 
+    # 确保索引页与 DB 同步（分辨率角标、帧数等）
+    try:
+        cmd_index(str(output_path))
+    except Exception as e:
+        console.print("[yellow]索引页刷新未执行:[/yellow]", str(e))
     console.print("\n[green]扫描完成。[/green] 结果目录: " + str(output_path))
 
 

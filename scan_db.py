@@ -140,11 +140,6 @@ def _worker_process_one(args: tuple) -> dict:
         pass
     out["file_hash"] = compute_file_hash(path)
     thumb_full = Path(thumb_dir_str) / thumb_file
-    # 缩略图已存在则直接跳过，不再打开视频（避免损坏/异常文件导致 30s 超时卡住）
-    if skip_existing and thumb_full.exists():
-        out["thumbnail_file"] = thumb_rel
-        out["status"] = "skip"
-        return out
     from config import USE_FFMPEG_GPU
     meta = None
     if USE_FFMPEG_GPU:
@@ -159,6 +154,11 @@ def _worker_process_one(args: tuple) -> dict:
         out["duration_sec"] = meta["duration_sec"]
         out["width"] = meta["width"]
         out["height"] = meta["height"]
+    # 缩略图已存在则跳过抽帧（仍已用 ffprobe 填好 width/height，角标可显示 360P/1080P/4K）
+    if skip_existing and thumb_full.exists():
+        out["thumbnail_file"] = thumb_rel
+        out["status"] = "skip"
+        return out
     duration_sec = out.get("duration_sec")
     # 优先：FFmpeg Tile 一次性出图（-ss 快寻道 + 无临时 PNG），失败再回退
     if duration_sec and duration_sec > 0:

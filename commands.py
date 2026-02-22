@@ -6,7 +6,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from config import OUTPUT_DB_NAME, THUMBNAILS_DIR, SCAN_OUTPUT_INSIDE_SOURCE
+from config import OUTPUT_DB_NAME, THUMBNAILS_DIR, SCAN_OUTPUT_INSIDE_SOURCE, QUICK_SCAN_MODE, THUMBNAIL_FRAME_COUNT
 
 
 def default_output_dir(root: str, inside_source: bool = True) -> str:
@@ -120,3 +120,27 @@ def cmd_duplicates(db_or_output: str, out_file: str | None) -> None:
 def cmd_check_gpu(video_path: str | None) -> None:
     from ffmpeg_frames import run_gpu_check
     run_gpu_check(video_path)
+
+
+def cmd_index(output_dir: str) -> None:
+    """仅根据已有 report.duckdb 重新生成 index.html（不重新扫描）。用于模板/样式更新后刷新索引页。"""
+    import duckdb
+    from html_index import build_index_from_db
+    out = Path(output_dir).resolve()
+    db_path = out / OUTPUT_DB_NAME
+    if not db_path.is_file():
+        print("错误：未找到", OUTPUT_DB_NAME, "于", out, file=sys.stderr)
+        sys.exit(1)
+    con = duckdb.connect(str(db_path))
+    row = con.execute(
+        "SELECT id, root_path FROM scans WHERE output_dir = ? ORDER BY id DESC LIMIT 1",
+        [str(out)],
+    ).fetchone()
+    con.close()
+    if not row:
+        print("错误：该目录下无扫描记录", file=sys.stderr)
+        sys.exit(1)
+    scan_id, root_path = row[0], row[1]
+    nf = 3 if QUICK_SCAN_MODE else THUMBNAIL_FRAME_COUNT
+    build_index_from_db(str(db_path), str(out), scan_id=scan_id, title="视频索引", root_path=root_path, thumb_frames=nf)
+    print("已重新生成索引页:", out / "index.html")

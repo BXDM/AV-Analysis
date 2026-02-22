@@ -27,6 +27,7 @@
     .thumb-wrap .thumb { width: calc(var(--thumb-frames, 6) * 100%); height: auto; min-height: 120px; display: block; object-fit: none; object-position: 0 0; background: #2a2a2a; transition: transform 0.05s ease-out; }
     .thumb-4k { position: absolute; top: 6px; left: 6px; width: 40px; height: auto; z-index: 1; }
     .duration-badge { position: absolute; bottom: 6px; right: 6px; background: rgba(0,0,0,.85); color: #fff; padding: 2px 6px; font-size: 11px; border-radius: 4px; z-index: 1; }
+    .resolution-badge { position: absolute; bottom: 6px; left: 6px; background: rgba(0,0,0,.85); color: #ccc; padding: 2px 6px; font-size: 11px; border-radius: 4px; z-index: 1; }
     .no-thumb { padding: 48px 16px; text-align: center; background: #2a2a2a; color: #666; font-size: 12px; }
     .name { padding: 10px 10px 4px; font-size: 12px; line-height: 1.3; word-break: break-all; }
     .meta { padding: 4px 10px 10px; font-size: 11px; color: #888; line-height: 1.4; }
@@ -69,6 +70,7 @@
         <span class="thumb-wrap" data-frames="{{ thumb_frames }}">
           <img src="{{ it.thumb_rel }}" alt="" class="thumb"/>
           {% if it.is_4k %}<img src="4k-uhd.png" alt="4K" class="thumb-4k"/>{% endif %}
+          {% if it.quality_display %}<span class="resolution-badge">{{ it.quality_display }}</span>{% endif %}
           {% if it.duration_display %}<span class="duration-badge">{{ it.duration_display }}</span>{% endif %}
         </span>
         {% else %}
@@ -129,15 +131,16 @@
 
       sortSelect.onchange = applySort;
 
-      // 雪碧图悬停拨动：鼠标左右移动切换显示第 1～6 帧（工业方案，零编码、零延迟）
+      // 雪碧图悬停拨动：按相对 thumb-wrap 的横向位置切换 1～n 帧（用 getBoundingClientRect 避免子元素 offsetX 错位）
       list.querySelectorAll(".thumb-wrap[data-frames]").forEach(function(wrap) {
         var img = wrap.querySelector(".thumb");
         if (!img) return;
         var n = parseInt(wrap.getAttribute("data-frames") || "6", 10) || 6;
         wrap.addEventListener("mousemove", function(e) {
-          var w = wrap.offsetWidth;
+          var rect = wrap.getBoundingClientRect();
+          var w = rect.width;
           if (!w) return;
-          var x = e.offsetX;
+          var x = e.clientX - rect.left;
           var i = Math.min(n - 1, Math.max(0, Math.floor((x / w) * n)));
           img.style.transform = "translateX(-" + (i / n * 100) + "%)";
         });

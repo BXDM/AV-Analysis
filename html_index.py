@@ -3,7 +3,7 @@
 
 from pathlib import Path
 
-from config import OUTPUT_INDEX_HTML
+from config import OUTPUT_INDEX_HTML, THUMBNAIL_MAX_WIDTH
 
 
 def path_to_file_url(path: str) -> str:
@@ -32,6 +32,8 @@ def _fallback_html(items: list, title: str, thumb_frames: int = 6) -> str:
             thumb = f'<span class="thumb-wrap" data-frames="{thumb_frames}"><img src="{tr}" alt="" class="thumb"/>'
             if it.get("is_4k"):
                 thumb += '<img src="4k-uhd.png" alt="4K" class="thumb-4k"/>'
+            if quality:
+                thumb += f'<span class="resolution-badge">{quality}</span>'
             if dur:
                 thumb += f'<span class="duration-badge">{dur}</span>'
             thumb += "</span>"
@@ -48,9 +50,9 @@ def _fallback_html(items: list, title: str, thumb_frames: int = 6) -> str:
     total = len(items)
     return f"""<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8"/><title>{title}</title>
-<style>body{{font-family:sans-serif;margin:20px;background:#1a1a1a;color:#eee}}.search-wrap{{margin-bottom:16px}}.search-wrap input{{padding:8px 12px;width:100%;max-width:400px;background:#2a2a2a;border:1px solid #444;border-radius:6px;color:#eee}}.count{{color:#888;font-size:14px;margin-bottom:16px}}ul{{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;padding:0}}li a{{display:flex;flex-direction:column;text-decoration:none;color:#ccc;border:1px solid #333;border-radius:8px;overflow:hidden}}body{{--thumb-frames:{thumb_frames}}}.thumb-wrap{{position:relative;width:100%;overflow:hidden}}.thumb-wrap .thumb{{width:calc(var(--thumb-frames,6) * 100%);height:auto;min-height:120px;display:block;object-fit:none;object-position:0 0}}.thumb-4k{{position:absolute;top:6px;left:6px;width:40px;height:auto;z-index:1}}.duration-badge{{position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,.8);color:#fff;padding:2px 6px;font-size:11px;border-radius:4px;z-index:1}}.no-thumb{{padding:40px;text-align:center;background:#2a2a2a}}.name{{padding:8px 8px 2px;font-size:12px}}.meta{{padding:2px 8px 8px;font-size:11px;color:#888}}</style></head>
+<style>body{{font-family:sans-serif;margin:20px;background:#1a1a1a;color:#eee}}.search-wrap{{margin-bottom:16px}}.search-wrap input{{padding:8px 12px;width:100%;max-width:400px;background:#2a2a2a;border:1px solid #444;border-radius:6px;color:#eee}}.count{{color:#888;font-size:14px;margin-bottom:16px}}ul{{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;padding:0}}li a{{display:flex;flex-direction:column;text-decoration:none;color:#ccc;border:1px solid #333;border-radius:8px;overflow:hidden}}body{{--thumb-frames:{thumb_frames}}}.thumb-wrap{{position:relative;width:100%;overflow:hidden}}.thumb-wrap .thumb{{width:calc(var(--thumb-frames,6) * 100%);height:auto;min-height:120px;display:block;object-fit:none;object-position:0 0}}.thumb-4k{{position:absolute;top:6px;left:6px;width:40px;height:auto;z-index:1}}.duration-badge{{position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,.8);color:#fff;padding:2px 6px;font-size:11px;border-radius:4px;z-index:1}}.resolution-badge{{position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,.85);color:#ccc;padding:2px 6px;font-size:11px;border-radius:4px;z-index:1}}.no-thumb{{padding:40px;text-align:center;background:#2a2a2a}}.name{{padding:8px 8px 2px;font-size:12px}}.meta{{padding:2px 8px 8px;font-size:11px;color:#888}}</style></head>
 <body style="--thumb-frames:{thumb_frames}"><h1>{title}</h1><div class="search-wrap"><input type="text" id="q" placeholder="搜索文件名、时长、日期、画质…" autocomplete="off"/></div><p class="count" id="count">共 {total} 个 · 点击用默认播放器打开（将 PotPlayer 设为默认即可）</p><ul id="list">{chr(10).join(rows)}</ul>
-<script>var total={total};var list=document.getElementById("list");var countEl=document.getElementById("count");document.getElementById("q").oninput=function(){{var q=this.value.toLowerCase().trim();var vis=0;for(var i=0;i<list.children.length;i++){{var el=list.children[i];var show=!q||el.getAttribute("data-search").indexOf(q)!==-1;el.style.display=show?"":"none";if(show)vis++}}countEl.textContent="显示 "+vis+" / 共 "+total+" 个 · 点击用默认播放器打开（将 PotPlayer 设为默认即可）"}};list.querySelectorAll(".thumb-wrap[data-frames]").forEach(function(wrap){{var img=wrap.querySelector(".thumb");if(!img)return;var n=parseInt(wrap.getAttribute("data-frames")||"6",10)||6;wrap.addEventListener("mousemove",function(e){{var w=wrap.offsetWidth;if(!w)return;var i=Math.min(n-1,Math.max(0,Math.floor((e.offsetX/w)*n)));img.style.transform="translateX(-"+(i/n*100)+"%)"}});wrap.addEventListener("mouseleave",function(){{img.style.transform="translateX(0)"}})}});</script></body></html>"""
+<script>var total={total};var list=document.getElementById("list");var countEl=document.getElementById("count");document.getElementById("q").oninput=function(){{var q=this.value.toLowerCase().trim();var vis=0;for(var i=0;i<list.children.length;i++){{var el=list.children[i];var show=!q||el.getAttribute("data-search").indexOf(q)!==-1;el.style.display=show?"":"none";if(show)vis++}}countEl.textContent="显示 "+vis+" / 共 "+total+" 个 · 点击用默认播放器打开（将 PotPlayer 设为默认即可）"}};list.querySelectorAll(".thumb-wrap[data-frames]").forEach(function(wrap){{var img=wrap.querySelector(".thumb");if(!img)return;var n=parseInt(wrap.getAttribute("data-frames")||"6",10)||6;wrap.addEventListener("mousemove",function(e){{var rect=wrap.getBoundingClientRect();var w=rect.width;if(!w)return;var x=e.clientX-rect.left;var i=Math.min(n-1,Math.max(0,Math.floor((x/w)*n)));img.style.transform="translateX(-"+(i/n*100)+"%)"}});wrap.addEventListener("mouseleave",function(){{img.style.transform="translateX(0)"}})}});</script></body></html>"""
 
 
 def _is_4k(width, height) -> bool:
@@ -75,11 +77,26 @@ def _format_date(file_mtime: str) -> str:
 
 
 def _format_quality(width, height) -> str:
+    """分辨率角标：优先 360P/720P/1080P/2K/4K，无宽高时返回 —。"""
+    if width is None and height is None:
+        return "—"
     if width is None or height is None:
-        return ""
-    if _is_4k(width, height):
+        return str(width or height or "—")
+    h = height or 0
+    w = width or 0
+    if h >= 2160 or w >= 3840:
         return "4K"
-    return f"{width}×{height}"
+    if h >= 1440 or w >= 2560:
+        return "2K"
+    if h >= 1080 or w >= 1920:
+        return "1080P"
+    if h >= 720 or w >= 1280:
+        return "720P"
+    if h >= 480:
+        return "480P"
+    if h >= 360:
+        return "360P"
+    return f"{w}×{h}"
 
 
 def _format_size(size) -> str:
@@ -92,6 +109,28 @@ def _format_size(size) -> str:
     if size < 1024 * 1024 * 1024:
         return f"{size / (1024 * 1024):.1f} MB"
     return f"{size / (1024 * 1024 * 1024):.1f} GB"
+
+
+def _detect_thumb_frames_from_image(out_dir: Path, items: list, default_frames: int, frame_width: int) -> int:
+    """从首张存在的缩略图宽度推断雪碧图帧数（宽度/单帧宽），用于与历史 2 帧图一致。"""
+    for it in items:
+        rel = it.get("thumb_rel")
+        if not rel:
+            continue
+        path = out_dir / rel.replace("\\", "/")
+        if not path.is_file():
+            continue
+        try:
+            from PIL import Image
+            with Image.open(path) as im:
+                w = im.size[0]
+            if w >= frame_width:
+                n = max(1, min(12, w // frame_width))
+                return n
+        except Exception:
+            pass
+        break
+    return default_frames
 
 
 def build_index_from_db(db_path: str, output_dir: str, scan_id: int, title: str = "视频索引", root_path: str | None = None, thumb_frames: int = 6):
@@ -128,6 +167,8 @@ def build_index_from_db(db_path: str, output_dir: str, scan_id: int, title: str 
     if logo_src.exists():
         shutil.copy2(logo_src, out_dir / "4k-uhd.png")
     out_path = out_dir / OUTPUT_INDEX_HTML
+    # 从首张缩略图推断实际帧数（雪碧图宽度/单帧宽），避免历史 2 帧图与 data-frames=6 不一致导致“只换两张”
+    n_frames = _detect_thumb_frames_from_image(out_dir, items, thumb_frames, THUMBNAIL_MAX_WIDTH)
     use_relative = root_path and str(Path(output_dir).resolve().parent) == str(Path(root_path).resolve())
     for it in items:
         if use_relative and it.get("rel_path"):
@@ -137,8 +178,8 @@ def build_index_from_db(db_path: str, output_dir: str, scan_id: int, title: str 
     try:
         from jinja2 import Template
         with open(Path(__file__).parent / "index_template.html", "r", encoding="utf-8") as f:
-            html = Template(f.read()).render(items=items, title=title, total=len(items), thumb_frames=thumb_frames)
+            html = Template(f.read()).render(items=items, title=title, total=len(items), thumb_frames=n_frames)
     except Exception:
-        html = _fallback_html(items, title, thumb_frames=thumb_frames)
+        html = _fallback_html(items, title, thumb_frames=n_frames)
     out_path.write_text(html, encoding="utf-8")
     print("已生成索引页:", out_path)

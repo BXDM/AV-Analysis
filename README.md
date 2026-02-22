@@ -4,11 +4,12 @@
 
 ---
 
-## 命令（5 个）
+## 命令（6 个）
 
 | 命令 | 说明 |
 |------|------|
 | **scan** | 扫描 → DuckDB（哈希/写入时间/分辨率/时长）+ 缩略图/报告/index.html 到输出目录 |
+| **index** | 仅根据已有 report.duckdb 重新生成 index.html（不重新扫描；模板/样式更新后刷新索引页用） |
 | **clean** | 删除资源目录下所有 `_thumbnails`（按需，补救用） |
 | **query** | 查 DuckDB：写入时间、清晰度、大小、时长（可 --sql、--out） |
 | **duplicates** | 按 file_hash 列出相同文件（可 --out） |
@@ -45,6 +46,7 @@ pip install -r requirements.txt
   结果在 `output/<路径哈希>/`：`report.duckdb`、`thumbnails/`、`video_report.txt`、`keyword_summary.png`、`index.html`。
 - **查历史**：`python main.py query <输出目录>`
 - **查重**：`python main.py duplicates <输出目录>`
+- **仅刷新索引页**：`python main.py index <输出目录>`（模板或样式改过后不必重扫，直接重新生成 index.html）
 - **检测 GPU**：`python main.py check-gpu [视频路径]`
 - **一键扫描（推荐）**：在 `config.py` 中设置 `SCAN_SOURCE_DIR`（必填）、`SCAN_OUTPUT_DIR`（可选），然后运行 `python run_scan.py`。仅更新数据库与缩略图（已存在会跳过），终端用 rich 显示进度。
 - **按 target_dir.txt**：编辑 `target_dir.txt` 第一行为资源路径，然后 `python run_analysis_target.py`（加 `--clean` 可先删 _thumbnails）。

@@ -31,8 +31,14 @@ def main():
     sp = sub.add_parser("check-gpu", help="检测 FFmpeg 与 GPU 是否可用")
     sp.add_argument("video", nargs="?", default=None, help="可选：视频路径做抽帧测试")
 
+    sp = sub.add_parser("index", help="仅根据已有 report.duckdb 重新生成 index.html（不重新扫描）")
+    sp.add_argument("output", help="输出目录（含 report.duckdb 的目录）")
+
     args = p.parse_args()
 
+    if args.command == "index":
+        commands.cmd_index(getattr(args, "output", None))
+        return
     if args.command == "duplicates":
         commands.cmd_duplicates(args.db_or_output, getattr(args, "out", None))
         return
