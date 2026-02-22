@@ -28,9 +28,14 @@ FILE_ENCODING = "utf-8"
 # 仅处理尚未生成缩略图的文件（在统一输出目录内生效）
 SKIP_EXISTING_THUMBNAILS = True
 
-# 文件哈希：用于检索相同文件（逐块读取，块大小字节）
+# 文件哈希：用于检索相同文件
 FILE_HASH_ALGO = "sha256"
+# 全量哈希时逐块读取的块大小（字节）
 FILE_HASH_CHUNK_SIZE = 1024 * 1024  # 1MB
+# True=采样哈希（头/中/尾各一段，大文件快）；False=全量哈希（精确但大文件慢）
+FILE_HASH_SAMPLE = True
+# 采样哈希时每段字节数（头、中、尾各读一段，共约 3*此值）
+FILE_HASH_SAMPLE_SIZE = 128 * 1024  # 128KB
 
 # 扫描并行度：0=自动(CPU 核心数)，1=单进程(原逻辑)，N=多进程数。多进程可显著加速缩略图生成。
 SCAN_WORKERS = 0
@@ -39,6 +44,12 @@ SCAN_WORKERS = 0
 USE_FFMPEG_GPU = True
 # FFmpeg 硬件加速：cuda(NVIDIA), d3d11va(Windows), dxva2(Windows), "" 仅 CPU。auto=依次尝试 cuda -> d3d11va -> ""
 FFMPEG_HWACCEL = "auto"
+
+# 一键扫描入口（run_scan.py）使用的目录：仅更新数据库与缩略图，不全盘清空
+# 扫描源目录（必填，运行 run_scan.py 时从此处读）
+SCAN_SOURCE_DIR = r""
+# 输出目录（留空则根据源目录路径哈希自动生成到项目 output/ 下）
+SCAN_OUTPUT_DIR = ""
 
 
 def is_video(filename: str) -> bool:

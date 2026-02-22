@@ -21,23 +21,40 @@ from config import (
     SKIP_EXISTING_THUMBNAILS,
     FILE_HASH_ALGO,
     FILE_HASH_CHUNK_SIZE,
+    FILE_HASH_SAMPLE,
+    FILE_HASH_SAMPLE_SIZE,
     SCAN_WORKERS,
 )
 
 
 def compute_file_hash(file_path: str | Path) -> str | None:
-    """计算文件内容哈希（逐块读取，不占满内存）。返回 hex 字符串，失败返回 None。"""
+    """
+    计算文件内容哈希。返回 hex 字符串，失败返回 None。
+    - 采样模式（FILE_HASH_SAMPLE=True）：只读头/中/尾各一段，大文件快，用于查重足够。
+    - 全量模式：整文件逐块 SHA，精确但大文件耗时长。
+    """
     path = Path(file_path)
     if not path.is_file():
         return None
     try:
+        size = path.stat().st_size
         h = hashlib.new(FILE_HASH_ALGO)
-        with open(path, "rb") as f:
-            while True:
-                chunk = f.read(FILE_HASH_CHUNK_SIZE)
-                if not chunk:
-                    break
-                h.update(chunk)
+        if FILE_HASH_SAMPLE and size > FILE_HASH_SAMPLE_SIZE * 2:
+            # 头、中、尾各一段
+            n = FILE_HASH_SAMPLE_SIZE
+            with open(path, "rb") as f:
+                h.update(f.read(n))
+                f.seek(max(0, size // 2 - n // 2))
+                h.update(f.read(n))
+                f.seek(max(0, size - n))
+                h.update(f.read(n))
+        else:
+            with open(path, "rb") as f:
+                while True:
+                    chunk = f.read(FILE_HASH_CHUNK_SIZE)
+                    if not chunk:
+                        break
+                    h.update(chunk)
         return h.hexdigest()
     except OSError:
         return None
@@ -121,6 +138,12 @@ def _worker_process_one(args: tuple) -> dict:
     except OSError:
         pass
     out["file_hash"] = compute_file_hash(path)
+    thumb_full = Path(thumb_dir_str) / thumb_file
+    # 缩略图已存在则直接跳过，不再打开视频（避免损坏/异常文件导致 30s 超时卡住）
+    if skip_existing and thumb_full.exists():
+        out["thumbnail_file"] = thumb_rel
+        out["status"] = "skip"
+        return out
     from config import USE_FFMPEG_GPU
     meta = None
     if USE_FFMPEG_GPU:
@@ -135,11 +158,6 @@ def _worker_process_one(args: tuple) -> dict:
         out["duration_sec"] = meta["duration_sec"]
         out["width"] = meta["width"]
         out["height"] = meta["height"]
-    thumb_full = Path(thumb_dir_str) / thumb_file
-    if skip_existing and thumb_full.exists():
-        out["thumbnail_file"] = thumb_rel
-        out["status"] = "skip"
-        return out
     from video_thumbnails import extract_frames, stitch_frames
     frames = extract_frames(p, num_frames, max_width)
     if not frames:
@@ -192,14 +210,22 @@ def _insert_row(con, scan_id: int, row_dict: dict, stats: dict) -> None:
 
 
 def get_or_create_scan_id(con, root_path: str, output_dir: str) -> int:
-    """返回本次扫描的 scan_id。"""
-    cur = con.execute(
-        "SELECT max(id) FROM scans"
+    """同一 (root_path, output_dir) 复用同一 scan_id，便于重扫时先删后插、已删视频从库移除。"""
+    root_s = str(Path(root_path).resolve())
+    out_s = str(Path(output_dir).resolve())
+    row = con.execute(
+        "SELECT id FROM scans WHERE root_path = ? AND output_dir = ? ORDER BY id DESC LIMIT 1",
+        [root_s, out_s],
     ).fetchone()
+    if row:
+        scan_id = row[0]
+        con.execute("UPDATE scans SET scanned_at = ? WHERE id = ?", [datetime.now().isoformat(), scan_id])
+        return scan_id
+    cur = con.execute("SELECT max(id) FROM scans").fetchone()
     next_id = 1 if (cur[0] is None) else cur[0] + 1
     con.execute(
         "INSERT INTO scans (id, root_path, output_dir, scanned_at) VALUES (?, ?, ?, ?)",
-        [next_id, str(Path(root_path).resolve()), str(Path(output_dir).resolve()), datetime.now().isoformat()]
+        [next_id, root_s, out_s, datetime.now().isoformat()],
     )
     return next_id
 
@@ -211,6 +237,7 @@ def scan_to_output(
     max_width: int = THUMBNAIL_MAX_WIDTH,
     skip_existing: bool = SKIP_EXISTING_THUMBNAILS,
     workers: int | None = None,
+    progress_callback=None,
 ) -> dict:
     """
     扫描 root_path 下所有视频，缩略图与报告写入 output_dir，不修改原目录。
@@ -229,10 +256,14 @@ def scan_to_output(
     thumb_dir.mkdir(parents=True, exist_ok=True)
     db_path = out / OUTPUT_DB_NAME
 
+    if progress_callback:
+        progress_callback(0, 0, None)  # 枚举阶段提示
+
     import duckdb
     init_db(str(db_path))
     con = duckdb.connect(str(db_path))
     scan_id = get_or_create_scan_id(con, str(root), str(out))
+    con.execute("DELETE FROM videos WHERE scan_id = ?", [scan_id])  # 重扫时先删，已删视频从库移除
 
     from filename_analysis import scan_directory
 
@@ -254,17 +285,25 @@ def scan_to_output(
 
     workers = workers if workers is not None else (SCAN_WORKERS if SCAN_WORKERS > 0 else (os.cpu_count() or 4))
     workers = min(max(1, workers), len(arg_list), 32)
-    print(f"扫描 {len(arg_list)} 个视频，使用 {workers} 个进程并行")
+    total = len(arg_list)
+    if progress_callback:
+        progress_callback(0, total, None)
+    if not progress_callback:
+        print(f"扫描 {total} 个视频，使用 {workers} 个进程并行")
 
     if workers <= 1:
-        for args in arg_list:
+        for idx, args in enumerate(arg_list):
             row_dict = _worker_process_one(args)
             _insert_row(con, scan_id, row_dict, stats)
+            if progress_callback:
+                progress_callback(idx + 1, total, row_dict)
     else:
         from concurrent.futures import ProcessPoolExecutor
         with ProcessPoolExecutor(max_workers=workers) as ex:
-            for row_dict in ex.map(_worker_process_one, arg_list, chunksize=1):
+            for idx, row_dict in enumerate(ex.map(_worker_process_one, arg_list, chunksize=1)):
                 _insert_row(con, scan_id, row_dict, stats)
+                if progress_callback:
+                    progress_callback(idx + 1, total, row_dict)
 
     con.close()
 

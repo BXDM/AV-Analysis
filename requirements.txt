@@ -10,3 +10,6 @@ matplotlib>=3.5.0
 
 # HTML template (Jinja2)
 Jinja2>=3.0.0
+
+# Progress (run_scan.py)
+rich>=13.0.0
