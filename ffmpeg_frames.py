@@ -197,3 +197,64 @@ def extract_frames_ffmpeg(
             except Exception:
                 pass
     return []
+
+
+def _run_cmd(cmd: list, timeout: int = 15) -> tuple[int, str, str]:
+    try:
+        r = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+        )
+        return r.returncode, (r.stdout or ""), (r.stderr or "")
+    except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+        return -1, "", str(e)
+    except Exception as e:
+        return -1, "", str(e)
+
+
+def run_gpu_check(video_path: str | None = None) -> None:
+    """检测 FFmpeg 与 GPU 硬解是否可用。"""
+    from config import USE_FFMPEG_GPU, FFMPEG_HWACCEL, THUMBNAIL_MAX_WIDTH
+    print("========== FFmpeg + GPU 检测 ==========\n")
+    print("[配置] USE_FFMPEG_GPU =", USE_FFMPEG_GPU, " FFMPEG_HWACCEL =", repr(FFMPEG_HWACCEL), "\n")
+
+    ffmpeg = shutil.which("ffmpeg")
+    ffprobe = shutil.which("ffprobe")
+    if not ffmpeg:
+        print("[1] ffmpeg 未找到，请安装并加入 PATH")
+        return
+    if not ffprobe:
+        print("[1] ffprobe 未找到")
+        return
+    print("[1] FFmpeg 路径:", ffmpeg, "\n")
+
+    code, out, _ = _run_cmd([ffmpeg, "-hwaccels"])
+    print("[2] 硬件加速 (ffmpeg -hwaccels)\n", out.strip() if code == 0 else "（失败）", "\n")
+
+    if USE_FFMPEG_GPU and FFMPEG_HWACCEL:
+        try_order = ["cuda", "d3d11va", "dxva2"] if FFMPEG_HWACCEL == "auto" else [FFMPEG_HWACCEL]
+        print("[3] 解码测试")
+        for accel in try_order:
+            if not accel:
+                continue
+            code, _, err = _run_cmd([
+                ffmpeg, "-y", "-hwaccel", accel,
+                "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
+                "-frames:v", "1", "-f", "null", "-"
+            ], timeout=10)
+            print(f"  {accel}: {'可用' if code == 0 else '不可用'}")
+        print()
+
+    if video_path and Path(video_path).is_file():
+        print("[4] 抽帧测试")
+        try:
+            frames = extract_frames_ffmpeg(video_path, 1, THUMBNAIL_MAX_WIDTH, FFMPEG_HWACCEL)
+            print(f"  成功: {len(frames)} 帧" if frames else "  失败")
+        except Exception as e:
+            print("  异常:", e)
+    else:
+        print("[4] 抽帧测试: 可指定视频路径，如 python main.py check-gpu <视频>")
+    print("\n========== 检测结束 ==========")
