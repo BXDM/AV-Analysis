@@ -19,6 +19,7 @@ from config import (
     THUMBNAIL_FRAME_COUNT,
     THUMBNAIL_MAX_WIDTH,
     SKIP_EXISTING_THUMBNAILS,
+    QUICK_SCAN_MODE,
     FILE_HASH_ALGO,
     FILE_HASH_CHUNK_SIZE,
     FILE_HASH_SAMPLE,
@@ -158,8 +159,22 @@ def _worker_process_one(args: tuple) -> dict:
         out["duration_sec"] = meta["duration_sec"]
         out["width"] = meta["width"]
         out["height"] = meta["height"]
-    from video_thumbnails import extract_frames, stitch_frames, save_animated_gif
-    frames = extract_frames(p, num_frames, max_width)
+    duration_sec = out.get("duration_sec")
+    # 优先：FFmpeg Tile 一次性出图（-ss 快寻道 + 无临时 PNG），失败再回退
+    if duration_sec and duration_sec > 0:
+        from config import USE_FFMPEG_GPU, FFMPEG_HWACCEL
+        if USE_FFMPEG_GPU:
+            try:
+                from ffmpeg_frames import extract_and_save_sprite_ffmpeg
+                if extract_and_save_sprite_ffmpeg(p, thumb_full, num_frames, max_width, duration_sec, FFMPEG_HWACCEL):
+                    out["thumbnail_file"] = thumb_rel
+                    out["status"] = "ok"
+                    return out
+            except Exception:
+                pass
+    from video_thumbnails import extract_frames, stitch_frames
+    duration_for_frames = duration_sec if duration_sec and duration_sec > 0 else None
+    frames = extract_frames(p, num_frames, max_width, duration_sec=duration_for_frames)
     if not frames:
         return out
     img = stitch_frames(frames)
@@ -169,8 +184,6 @@ def _worker_process_one(args: tuple) -> dict:
         img.save(str(thumb_full), "JPEG", quality=85)
         out["thumbnail_file"] = thumb_rel
         out["status"] = "ok"
-        gif_path = Path(thumb_full).with_suffix(".gif")
-        save_animated_gif(frames, gif_path, duration_ms=280)
     except Exception:
         pass
     return out
@@ -272,7 +285,8 @@ def scan_to_output(
     records, keyword_counter = scan_directory(str(root))
     stats = {"ok": 0, "skip": 0, "fail": 0}
 
-    # 构建每个视频的 worker 参数
+    # 构建每个视频的 worker 参数（QUICK_SCAN_MODE 时 3 帧，抽帧密度减半）
+    nf = 3 if QUICK_SCAN_MODE else num_frames
     arg_list = []
     for r in records:
         path = r["path"]
@@ -283,7 +297,7 @@ def scan_to_output(
             rel = name
         thumb_file = thumb_filename_for_path(path)
         thumb_rel = f"{OUTPUT_THUMBNAILS_SUBDIR}/{thumb_file}"
-        arg_list.append((path, name, rel, str(thumb_dir), thumb_file, thumb_rel, num_frames, max_width, skip_existing))
+        arg_list.append((path, name, rel, str(thumb_dir), thumb_file, thumb_rel, nf, max_width, skip_existing))
 
     workers = workers if workers is not None else (SCAN_WORKERS if SCAN_WORKERS > 0 else (os.cpu_count() or 4))
     workers = min(max(1, workers), len(arg_list), 32)
@@ -314,8 +328,8 @@ def scan_to_output(
     text_report(records, keyword_counter, str(out / OUTPUT_REPORT_TXT))
     plot_summary(keyword_counter, output_path=str(out / OUTPUT_CHART))
 
-    # HTML 从 DB 读，缩略图在 output_dir 下；传 root_path 时用相对链接，summary 随目录迁移
+    # HTML 从 DB 读，缩略图在 output_dir 下；传 root_path 时用相对链接，thumb_frames 供前端雪碧图拨动
     from html_index import build_index_from_db
-    build_index_from_db(str(db_path), str(out), scan_id=scan_id, root_path=str(root))
+    build_index_from_db(str(db_path), str(out), scan_id=scan_id, root_path=str(root), thumb_frames=nf)
 
     return stats

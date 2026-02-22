@@ -54,8 +54,8 @@ pip install -r requirements.txt
 ## 配置（config.py）
 
 - **扫描入口**：`SCAN_SOURCE_DIR`、`SCAN_OUTPUT_DIR`（留空时用 `SCAN_OUTPUT_INSIDE_SOURCE`，默认 `AV-Summary`，即结果写在**扫描源目录下**，随目录迁移；设为空则用项目 `output/<哈希>`）
-- `VIDEO_EXTENSIONS`、`THUMBNAIL_FRAME_COUNT`、`THUMBNAIL_MAX_WIDTH`
-- `SCAN_WORKERS`：0=自动核心数，1=单进程，N=固定进程数
+- `VIDEO_EXTENSIONS`、`THUMBNAIL_FRAME_COUNT`、`QUICK_SCAN_MODE`（True=3 帧更快）、`THUMBNAIL_MAX_WIDTH`
+- `SCAN_WORKERS`：0=自动核心数，1=单进程，N=固定进程数；**视频在 HDD 建议 2–4**，SSD 可用 8–16
 - `USE_FFMPEG_GPU`、`FFMPEG_HWACCEL`（cuda / d3d11va / auto）
 - `SKIP_EXISTING_THUMBNAILS`：输出目录内跳过已有缩略图
 - `THUMBNAILS_DIR`：clean 要删除的目录名（默认 _thumbnails）
@@ -63,7 +63,8 @@ pip install -r requirements.txt
 
 ---
 
-- **索引页**：结果在扫描源内时使用相对链接，整盘/目录迁移后打开 `index.html` 仍可跳转播放；鼠标悬停缩略图会切换为 GIF 动图预览（如 xvideos/pornhub）。
+- **索引页**：结果在扫描源内时使用相对链接，整盘/目录迁移后打开 `index.html` 仍可跳转播放；缩略图为**雪碧图**（N 帧横拼一张 JPG，默认 6 帧，QUICK_SCAN_MODE 为 3 帧），悬停时鼠标左右拨动切换帧，零动图编码、加载快。
+- **性能**：详见 [PERF.md](PERF.md)。优先走 FFmpeg Tile 一次性出图 + 快寻道；可开 `QUICK_SCAN_MODE` 或减小 `THUMBNAIL_FRAME_COUNT` 提速。
 
 ---
 

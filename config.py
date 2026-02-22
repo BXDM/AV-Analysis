@@ -6,8 +6,10 @@ import os
 # 支持的视频扩展名（小写）
 VIDEO_EXTENSIONS = (".mp4", ".mkv", ".avi", ".wmv", ".flv", ".webm", ".mov")
 
-# 每个视频截取的帧数（均匀分布在时长上）
+# 每个视频截取的帧数（均匀分布在时长上）；减小可提速（如 4 或 3）
 THUMBNAIL_FRAME_COUNT = 6
+# True 时强制 3 帧（抽帧密度减半，扫描更快，预览略粗）
+QUICK_SCAN_MODE = False
 
 # 缩略图单帧最大宽度（保持比例）
 THUMBNAIL_MAX_WIDTH = 320
@@ -37,7 +39,8 @@ FILE_HASH_SAMPLE = True
 # 采样哈希时每段字节数（头、中、尾各读一段，共约 3*此值）
 FILE_HASH_SAMPLE_SIZE = 128 * 1024  # 128KB
 
-# 扫描并行度：0=自动(CPU 核心数)，1=单进程(原逻辑)，N=多进程数。多进程可显著加速缩略图生成。
+# 扫描并行度：0=自动(CPU 核心数)，1=单进程(原逻辑)，N=多进程数。
+# 视频在 HDD 时建议 2–4，避免磁头抖动；SSD 可用 8–16。
 SCAN_WORKERS = 0
 
 # 抽帧优先使用 FFmpeg + GPU 解码（需系统已安装 ffmpeg）。GPU 解码通常比 OpenCV CPU 更快。

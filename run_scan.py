@@ -51,10 +51,16 @@ def main():
     console.print(f"[bold]输出目录:[/bold] {output_path}")
     console.print("[dim]仅更新数据库与缩略图，已存在的缩略图会跳过。[/dim]\n")
 
+    NAME_WIDTH = 40  # 进度条文件名固定显示宽度，超出用省略号、不足补空格
+
     def on_progress(completed: int, total: int, row_dict: dict):
         progress.update(task_id, completed=completed, total=max(total, 1))
         if row_dict:
-            name = (row_dict.get("name") or "")[:32]
+            raw = (row_dict.get("name") or "")
+            if len(raw) > NAME_WIDTH:
+                name = raw[: NAME_WIDTH - 1] + "…"
+            else:
+                name = raw.ljust(NAME_WIDTH)
             status = row_dict.get("status", "")
             n_total = f" {completed}/{total}"
             if status == "ok":

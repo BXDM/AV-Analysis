@@ -63,12 +63,12 @@ def _extract_opencv(video_path: Path, num_frames: int, max_width: int):
     return frames
 
 
-def extract_frames(video_path: Path, num_frames: int, max_width: int):
-    """均匀截取 num_frames 帧。优先 FFmpeg+GPU，回退 OpenCV。"""
+def extract_frames(video_path: Path, num_frames: int, max_width: int, duration_sec: float | None = None):
+    """均匀截取 num_frames 帧。优先 FFmpeg+GPU，回退 OpenCV。duration_sec 已有时可传入以省一次 ffprobe。"""
     if USE_FFMPEG_GPU:
         try:
             from ffmpeg_frames import extract_frames_ffmpeg
-            f = extract_frames_ffmpeg(video_path, num_frames, max_width, FFMPEG_HWACCEL)
+            f = extract_frames_ffmpeg(video_path, num_frames, max_width, FFMPEG_HWACCEL, duration_sec=duration_sec)
             if f:
                 return f
         except Exception:

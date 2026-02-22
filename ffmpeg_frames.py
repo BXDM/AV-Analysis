@@ -102,11 +102,13 @@ def extract_frames_ffmpeg(
     num_frames: int,
     max_width: int,
     hwaccel: str = "cuda",
+    duration_sec: float | None = None,
+    fps: float | None = None,
 ) -> list:
     """
     用 FFmpeg（可选 GPU）从视频均匀截取 num_frames 帧，缩放到 max_width 宽。
     返回 list of RGB numpy 数组 (H,W,3)，失败返回空列表。
-    hwaccel: "cuda", "d3d11va", "dxva2", "" 或 "auto"（内部会尝试 cuda -> d3d11va -> 无）
+    duration_sec/fps 若已由外部传入则跳过 ffprobe，减少一次子进程。
     """
     ffmpeg = _ffmpeg_bin()
     if not ffmpeg:
@@ -115,36 +117,37 @@ def extract_frames_ffmpeg(
     if not path.is_file():
         return []
 
-    ffprobe = _ffprobe_bin()
-    duration_sec = None
-    fps = 30.0
-    if ffprobe:
-        try:
-            out = subprocess.run(
-                [
-                    ffprobe,
-                    "-v", "error",
-                    "-select_streams", "v:0",
-                    "-show_entries", "stream=duration,r_frame_rate",
-                    "-of", "json",
-                    str(path),
-                ],
-                capture_output=True,
-                timeout=15,
-                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
-            )
-            if out.returncode == 0 and out.stdout:
-                data = json.loads(out.stdout.decode("utf-8", errors="replace"))
-                s = (data.get("streams") or [{}])[0]
-                if s.get("duration"):
-                    duration_sec = float(s["duration"])
-                if s.get("r_frame_rate"):
-                    fps = _parse_r_frame_rate(s["r_frame_rate"]) or 30.0
-        except Exception:
-            pass
-
+    # 未传入有效 duration 时才调 ffprobe，避免与 worker 内 get_video_metadata_ffprobe 重复
     if duration_sec is None or duration_sec <= 0:
-        duration_sec = 10.0
+        ffprobe_bin = _ffprobe_bin()
+        if ffprobe_bin:
+            try:
+                out = subprocess.run(
+                    [
+                        ffprobe_bin,
+                        "-v", "error",
+                        "-select_streams", "v:0",
+                        "-show_entries", "stream=duration,r_frame_rate",
+                        "-of", "json",
+                        str(path),
+                    ],
+                    capture_output=True,
+                    timeout=15,
+                    creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+                )
+                if out.returncode == 0 and out.stdout:
+                    data = json.loads(out.stdout.decode("utf-8", errors="replace"))
+                    s = (data.get("streams") or [{}])[0]
+                    if s.get("duration"):
+                        duration_sec = float(s["duration"])
+                    if s.get("r_frame_rate"):
+                        fps = _parse_r_frame_rate(s["r_frame_rate"]) or 30.0
+            except Exception:
+                pass
+        if duration_sec is None or duration_sec <= 0:
+            duration_sec = 10.0
+    if fps is None or fps <= 0:
+        fps = 30.0
     total_frames = int(duration_sec * fps) or 1
     indices = []
     for i in range(num_frames):
@@ -195,6 +198,55 @@ def extract_frames_ffmpeg(
             except Exception:
                 pass
     return []
+
+
+def extract_and_save_sprite_ffmpeg(
+    video_path: str | Path,
+    output_jpg_path: str | Path,
+    num_frames: int,
+    max_width: int,
+    duration_sec: float,
+    hwaccel: str = "auto",
+    timeout: int = 60,
+) -> bool:
+    """
+    用 FFmpeg 一次性生成雪碧图 JPG：-ss 在 -i 前（快寻道）+ tile 滤镜，无临时 PNG。
+    成功返回 True，失败返回 False（调用方回退到 extract_frames + stitch）。
+    """
+    ffmpeg = _ffmpeg_bin()
+    if not ffmpeg:
+        return False
+    path = Path(video_path).resolve()
+    out_path = Path(output_jpg_path).resolve()
+    if not path.is_file() or duration_sec <= 0:
+        return False
+    # 均匀时间点（秒），-ss 快寻道
+    timestamps = [(i + 1) * duration_sec / (num_frames + 1) for i in range(num_frames)]
+    try_order = ["cuda", "d3d11va", ""] if hwaccel == "auto" else [hwaccel] if hwaccel else [""]
+    for accel in try_order:
+        hw_args = _resolve_hwaccel(accel) if accel else []
+        # 每个时间点一组 -ss -i，实现快寻道
+        args = [ffmpeg, "-y"] + hw_args
+        for t in timestamps:
+            args.extend(["-ss", str(round(t, 2)), "-i", str(path)])
+        # [0:v][1:v]... scale -> [v0][v1]... -> hstack 水平拼接（tile 在新版 FFmpeg 仅单路输入）
+        scale_vf = f"scale={max_width}:-2"
+        scale_parts = [f"[{i}:v]{scale_vf}[v{i}]" for i in range(num_frames)]
+        stack_inputs = "".join(f"[v{i}]" for i in range(num_frames))
+        filter_complex = ";".join(scale_parts) + f";{stack_inputs}hstack=inputs={num_frames}[out]"
+        args.extend(["-filter_complex", filter_complex, "-map", "[out]", "-frames:v", "1", "-q:v", "3", str(out_path)])
+        try:
+            r = subprocess.run(
+                args,
+                capture_output=True,
+                timeout=timeout,
+                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+            )
+            if r.returncode == 0 and out_path.is_file():
+                return True
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            pass
+    return False
 
 
 def _run_cmd(cmd: list, timeout: int = 15) -> tuple[int, str, str]:

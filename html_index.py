@@ -10,7 +10,7 @@ def path_to_file_url(path: str) -> str:
     return Path(path).resolve().as_uri()
 
 
-def _fallback_html(items: list, title: str) -> str:
+def _fallback_html(items: list, title: str, thumb_frames: int = 6) -> str:
     import html
     rows = []
     for it in items:
@@ -29,8 +29,7 @@ def _fallback_html(items: list, title: str) -> str:
         sort_date = (it.get("file_mtime") or "")[:10].replace("-", "") or "0"
         if it.get("thumb_rel"):
             tr = it["thumb_rel"]
-            tg = (it.get("thumb_gif_rel") or "").replace("&", "&amp;").replace('"', "&quot;")
-            thumb = f'<span class="thumb-wrap"><img src="{tr}" alt="" class="thumb" data-src="{tr}" data-gif="{tg}"/>'
+            thumb = f'<span class="thumb-wrap" data-frames="{thumb_frames}"><img src="{tr}" alt="" class="thumb"/>'
             if it.get("is_4k"):
                 thumb += '<img src="4k-uhd.png" alt="4K" class="thumb-4k"/>'
             if dur:
@@ -49,9 +48,9 @@ def _fallback_html(items: list, title: str) -> str:
     total = len(items)
     return f"""<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8"/><title>{title}</title>
-<style>body{{font-family:sans-serif;margin:20px;background:#1a1a1a;color:#eee}}.search-wrap{{margin-bottom:16px}}.search-wrap input{{padding:8px 12px;width:100%;max-width:400px;background:#2a2a2a;border:1px solid #444;border-radius:6px;color:#eee}}.count{{color:#888;font-size:14px;margin-bottom:16px}}ul{{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;padding:0}}li a{{display:flex;flex-direction:column;text-decoration:none;color:#ccc;border:1px solid #333;border-radius:8px;overflow:hidden}}.thumb-wrap{{position:relative;width:100%}}.thumb{{width:100%;height:auto;min-height:120px;object-fit:cover;display:block}}.thumb-4k{{position:absolute;top:6px;left:6px;width:40px;height:auto;z-index:1}}.duration-badge{{position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,.8);color:#fff;padding:2px 6px;font-size:11px;border-radius:4px;z-index:1}}.no-thumb{{padding:40px;text-align:center;background:#2a2a2a}}.name{{padding:8px 8px 2px;font-size:12px}}.meta{{padding:2px 8px 8px;font-size:11px;color:#888}}</style></head>
-<body><h1>{title}</h1><div class="search-wrap"><input type="text" id="q" placeholder="搜索文件名、时长、日期、画质…" autocomplete="off"/></div><p class="count" id="count">共 {total} 个 · 点击用默认播放器打开（将 PotPlayer 设为默认即可）</p><ul id="list">{chr(10).join(rows)}</ul>
-<script>var total={total};var list=document.getElementById("list");var countEl=document.getElementById("count");document.getElementById("q").oninput=function(){{var q=this.value.toLowerCase().trim();var vis=0;for(var i=0;i<list.children.length;i++){{var el=list.children[i];var show=!q||el.getAttribute("data-search").indexOf(q)!==-1;el.style.display=show?"":"none";if(show)vis++}}countEl.textContent="显示 "+vis+" / 共 "+total+" 个 · 点击用默认播放器打开（将 PotPlayer 设为默认即可）"}};list.querySelectorAll(".thumb-wrap").forEach(function(wrap){{var img=wrap.querySelector(".thumb[data-gif]");if(!img||!img.getAttribute("data-gif"))return;var gifSrc=img.getAttribute("data-gif");var staticSrc=img.getAttribute("data-src");wrap.addEventListener("mouseenter",function(){{img.src=gifSrc}});wrap.addEventListener("mouseleave",function(){{img.src=staticSrc}})}});</script></body></html>"""
+<style>body{{font-family:sans-serif;margin:20px;background:#1a1a1a;color:#eee}}.search-wrap{{margin-bottom:16px}}.search-wrap input{{padding:8px 12px;width:100%;max-width:400px;background:#2a2a2a;border:1px solid #444;border-radius:6px;color:#eee}}.count{{color:#888;font-size:14px;margin-bottom:16px}}ul{{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;padding:0}}li a{{display:flex;flex-direction:column;text-decoration:none;color:#ccc;border:1px solid #333;border-radius:8px;overflow:hidden}}body{{--thumb-frames:{thumb_frames}}}.thumb-wrap{{position:relative;width:100%;overflow:hidden}}.thumb-wrap .thumb{{width:calc(var(--thumb-frames,6) * 100%);height:auto;min-height:120px;display:block;object-fit:none;object-position:0 0}}.thumb-4k{{position:absolute;top:6px;left:6px;width:40px;height:auto;z-index:1}}.duration-badge{{position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,.8);color:#fff;padding:2px 6px;font-size:11px;border-radius:4px;z-index:1}}.no-thumb{{padding:40px;text-align:center;background:#2a2a2a}}.name{{padding:8px 8px 2px;font-size:12px}}.meta{{padding:2px 8px 8px;font-size:11px;color:#888}}</style></head>
+<body style="--thumb-frames:{thumb_frames}"><h1>{title}</h1><div class="search-wrap"><input type="text" id="q" placeholder="搜索文件名、时长、日期、画质…" autocomplete="off"/></div><p class="count" id="count">共 {total} 个 · 点击用默认播放器打开（将 PotPlayer 设为默认即可）</p><ul id="list">{chr(10).join(rows)}</ul>
+<script>var total={total};var list=document.getElementById("list");var countEl=document.getElementById("count");document.getElementById("q").oninput=function(){{var q=this.value.toLowerCase().trim();var vis=0;for(var i=0;i<list.children.length;i++){{var el=list.children[i];var show=!q||el.getAttribute("data-search").indexOf(q)!==-1;el.style.display=show?"":"none";if(show)vis++}}countEl.textContent="显示 "+vis+" / 共 "+total+" 个 · 点击用默认播放器打开（将 PotPlayer 设为默认即可）"}};list.querySelectorAll(".thumb-wrap[data-frames]").forEach(function(wrap){{var img=wrap.querySelector(".thumb");if(!img)return;var n=parseInt(wrap.getAttribute("data-frames")||"6",10)||6;wrap.addEventListener("mousemove",function(e){{var w=wrap.offsetWidth;if(!w)return;var i=Math.min(n-1,Math.max(0,Math.floor((e.offsetX/w)*n)));img.style.transform="translateX(-"+(i/n*100)+"%)"}});wrap.addEventListener("mouseleave",function(){{img.style.transform="translateX(0)"}})}});</script></body></html>"""
 
 
 def _is_4k(width, height) -> bool:
@@ -95,7 +94,7 @@ def _format_size(size) -> str:
     return f"{size / (1024 * 1024 * 1024):.1f} GB"
 
 
-def build_index_from_db(db_path: str, output_dir: str, scan_id: int, title: str = "视频索引", root_path: str | None = None):
+def build_index_from_db(db_path: str, output_dir: str, scan_id: int, title: str = "视频索引", root_path: str | None = None, thumb_frames: int = 6):
     import shutil
     import duckdb
     con = duckdb.connect(str(db_path))
@@ -108,13 +107,11 @@ def build_index_from_db(db_path: str, output_dir: str, scan_id: int, title: str 
     for r in rows:
         size, w, h, dur, mtime = r[4], r[5], r[6], r[7], r[8]
         thumb_rel = r[3]
-        thumb_gif_rel = (thumb_rel[:-4] + ".gif") if (thumb_rel and thumb_rel.lower().endswith(".jpg")) else ""
         items.append({
             "path": r[0],
             "rel_path": r[1],
             "name": r[2],
             "thumb_rel": thumb_rel,
-            "thumb_gif_rel": thumb_gif_rel,
             "file_size": size,
             "width": w,
             "height": h,
@@ -140,8 +137,8 @@ def build_index_from_db(db_path: str, output_dir: str, scan_id: int, title: str 
     try:
         from jinja2 import Template
         with open(Path(__file__).parent / "index_template.html", "r", encoding="utf-8") as f:
-            html = Template(f.read()).render(items=items, title=title, total=len(items))
+            html = Template(f.read()).render(items=items, title=title, total=len(items), thumb_frames=thumb_frames)
     except Exception:
-        html = _fallback_html(items, title)
+        html = _fallback_html(items, title, thumb_frames=thumb_frames)
     out_path.write_text(html, encoding="utf-8")
     print("已生成索引页:", out_path)
