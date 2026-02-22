@@ -1,0 +1,40 @@
+# Virtual env
+venv/
+.venv/
+env/
+
+# Output (scan results, DB, thumbnails)
+output/
+
+# User-specific target path (optional: remove to track)
+target_dir.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local DuckDB / reports (if any in project root)
+*.duckdb
+video_report.txt
+keyword_summary.png
+
+# One-off commit message file (UTF-8)
+commit_msg.txt
